@@ -1,6 +1,7 @@
 import ee
 import geedim
-import ccdcUtil
+from mypackage.model.ccdcUtil import *
+from datetime import datetime as dt
 
 def main():
 

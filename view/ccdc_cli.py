@@ -4,7 +4,9 @@ import ee
 import argparse
 import rioxarray as rxr
 from shapely import box
-from ccdcUtil import *
+from datetime import datetime as dt
+from mypackage.model.ccdcUtil import *
+
 
 def _getCoords(file):
     """
