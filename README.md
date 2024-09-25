@@ -1,23 +1,27 @@
 ---
-title: ILAB TEMPLATE - Data Science
-purpose: Template for python projects tailored to scientific applications (e.g., machine learning)
+title: pyCCDC
+purpose: synthetic imagery generation based on CCDC model results
 ---
 
-# ilab-template-python-data-science
+# pyCCDC
 
-Template for python projects tailored to scientific applications (e.g., machine learning)
+Python module provides a set of functions for working with Earth Engine (ee) 
+and performing time series analysis using the CCDC algorithm
 
 ## Objectives
 
-- Establish common structure for similar ILAB projects
+- Generate synthetic imagery at given date & ROI
 
 ## Containers
 
-### TBD 
+### ilab-vhr-toolkit 
 
 ## Quickstart
 
-### TBD
+### module load singularity
+### singularity shell -B <WORKING_DIR>:<DATA_PATH> <path-to>/ilab-vhr-toolkit
+### cd <path_to>/pyCCDC
+### python simpleCCDC.py
 
 ## Dataset Generation and Training
 
@@ -29,4 +33,4 @@ Template for python projects tailored to scientific applications (e.g., machine 
 
 ## Contributors
 
-### TBD
+### jli-99@github
