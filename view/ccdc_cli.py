@@ -2,11 +2,38 @@ import os
 import re
 import ee
 import argparse
+import os
+import re
+import ee
+import argparse
 import rioxarray as rxr
 from shapely import box
 from datetime import datetime as dt
 from pyCCDC.model.ccdcUtil import *
 
+"""
+CCDC (Continuous Change Detection and Classification) Image Generation Script
+
+This script generates synthetic images using the CCDC (Continuous Change Detection and Classification) 
+algorithm implemented in Google Earth Engine (GEE). It takes a footprint file as input, extracts the 
+coordinates and date from it, and uses this information to create a synthetic image for the specified 
+area and date.
+
+The script performs the following main tasks:
+1. Extracts coordinates from a given raster file and converts them to EPSG:4326 projection.
+2. Authenticates with Google Earth Engine using provided or default credentials.
+3. Generates a synthetic image using CCDC algorithm for the specified date and area.
+4. Saves the generated image to a specified output location.
+
+Usage:
+    python ccdc_cli.py \
+        --gee_account <GEE_SERVICE_ACCOUNT> \
+        --gee_key <PATH_TO_GEE_KEY_FILE> \
+        --output_path <OUTPUT_DIRECTORY> \
+        --footprint_file <PATH_TO_FOOTPRINT_FILE>
+
+Note: If GEE credentials are not provided, the script will attempt to use default credentials.
+"""
 
 def _getCoords(file):
     """
@@ -34,17 +61,24 @@ def _getCoords(file):
     coords = [[i[0], i[1]] for i in list(poly.exterior.coords)]
 
     return coords
-    
+
+def _get_gee_credential(account, key):
+    try:
+        return ee.ServiceAccountCredentials(account, key)
+    except Exception as e:
+        print(f"Error creating GEE credentials: {str(e)}")
+        raise   
+
 def genSingleImage(dateStr, coords, gee_account=None, gee_key=None, outfile=''):
 
-    # TODO: Implement user-specified GEE account authentication. 
+    # TODO: Implement user-specified GEE account authentication.
     # Currently using local credentials for testing purposes.
     if gee_account is None:
         gee_account = 'id-sl-senegal-service-account@ee-3sl-senegal.iam.gserviceaccount.com'
     if gee_key is None:
         gee_key = '/home/jli30/gee/ee-3sl-senegal-8fa70fe1c565.json'
     try:
-        credentials = self._get_gee_credential(gee_account, gee_key)
+        credentials = _get_gee_credential(gee_account, gee_key)
         ee.Initialize(credentials)
         print("GEE initialized successfully")
     except Exception as e:
@@ -69,32 +103,30 @@ def genSingleImage(dateStr, coords, gee_account=None, gee_key=None, outfile=''):
     im.download(outfile, crs=proj, scale=30, region=roi, max_tile_size=4, overwrite=True)
 
 
-
-
 if __name__ == "__main__":
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate synthetic image using CCDC')
     parser.add_argument(
-        'gee_account',
+        '--gee_account',
         type=str,
         default=None,
         help='GEE service account name'
     )
     parser.add_argument(
-        'gee_key',
+        '--gee_key',
         type=str,
         default=None,
         help='Path to GEE service account key file'
     )
     parser.add_argument(
-        'footprint_file',
+        '--footprint_file',
         type=str,
         default=None,
         help='Path to the file containing the scene footprint coordinates for CCDC generation'
     )
 
     parser.add_argument(
-        'output_path',
+        '--output_path',
         type=str,
         default='./',
         help='Directory path to save the generated synthetic image'
@@ -102,12 +134,11 @@ if __name__ == "__main__":
 
     # Parse arguments
     args = parser.parse_args()
-
     # Extract footprint coordinates
     coords = _getCoords(args.footprint_file)
 
     # Extract date
-    tiff_file = os.path.basename(args.footprint_file) 
+    tiff_file = os.path.basename(args.footprint_file)
     date_str = tiff_file.split('_')[1]
     # Validate date string format
     if not re.match(r'^\d{8}$', date_str):
