@@ -18,10 +18,13 @@ and performing time series analysis using the CCDC algorithm
 
 ## Quickstart
 
-  > module load singularity
-  > singularity shell -B <WORKING_DIR>:<DATA_PATH> <path-to>/ilab-vhr-toolkit
-  > cd <path_to>/pyCCDC
-  > python simpleCCDC.py
+> module load singularity
+>
+> singularity shell -B <WORKING_DIR>:<DATA_PATH> <path-to>/ilab-vhr-toolkit
+> 
+> cd <path_to>/pyCCDC
+> 
+> python simpleCCDC.py
 
 ## Dataset Generation and Training
 
