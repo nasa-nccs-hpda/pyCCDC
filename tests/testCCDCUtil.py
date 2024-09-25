@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 from datetime import datetime
-import ccdcUtil
+from pyCCDC.model.ccdcUtil import *
 
 """
 These tests primarily focus on verifying the logic flow and interactions
