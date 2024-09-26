@@ -45,7 +45,7 @@ def main():
         crs=proj,
         scale=30,
         region=roi,
-        max_tile_size=4,
+        max_tile_size=2,
         overwrite=True
     )
 if __name__ == "__main__":

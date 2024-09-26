@@ -92,7 +92,7 @@ def genSingleImage(dateStr, coords, gee_account=None, gee_key=None, outfile=''):
 
     proj="EPSG:4326"
     im = geedim.MaskedImage(outImage, mask=False)
-    im.download(outfile, crs=proj, scale=30, region=roi, max_tile_size=4, overwrite=True)
+    im.download(outfile, crs=proj, scale=30, region=roi, max_tile_size=2, overwrite=True)
 
 
 if __name__ == "__main__":
