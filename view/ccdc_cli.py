@@ -74,7 +74,7 @@ def genSingleImage(dateStr, coords, gee_account=None, gee_key=None, outfile=''):
     # TODO: Implement user-specified GEE account authentication.
     # Currently using local credentials for testing purposes.
     if gee_account is None:
-        gee_account = 'id-sl-senegal-service-account@ee-3sl-senegal.iam.gserviceaccount.com'
+        gee_account = ''
     if gee_key is None:
         gee_key = '/home/jli30/gee/ee-3sl-senegal-8fa70fe1c565.json'
     try:
