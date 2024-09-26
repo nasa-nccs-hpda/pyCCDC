@@ -1,7 +1,4 @@
-import os
-import re
-import ee
-import argparse
+import json
 import os
 import re
 import ee
@@ -27,8 +24,7 @@ The script performs the following main tasks:
 
 Usage:
     python ccdc_cli.py \
-        --gee_account <GEE_SERVICE_ACCOUNT> \
-        --gee_key <PATH_TO_GEE_KEY_FILE> \
+        --gee_config <GEE_CONFIG_FILE> \
         --output_path <OUTPUT_DIRECTORY> \
         --footprint_file <PATH_TO_FOOTPRINT_FILE>
 
@@ -73,10 +69,6 @@ def genSingleImage(dateStr, coords, gee_account=None, gee_key=None, outfile=''):
 
     # TODO: Implement user-specified GEE account authentication.
     # Currently using local credentials for testing purposes.
-    if gee_account is None:
-        gee_account = ''
-    if gee_key is None:
-        gee_key = '/home/jli30/gee/ee-3sl-senegal-8fa70fe1c565.json'
     try:
         credentials = _get_gee_credential(gee_account, gee_key)
         ee.Initialize(credentials)
@@ -85,7 +77,7 @@ def genSingleImage(dateStr, coords, gee_account=None, gee_key=None, outfile=''):
         print(f"Error initializing GEE: {str(e)}")
         raise
     
-    date_object = dt.strptime(date_str, '%Y-%m-%d').date()
+    date_object = dt.strptime(dateStr, '%Y-%m-%d').date()
     formattedDate = toYearFraction(date_object)
 
     roi = ee.Geometry.Polygon(coords=[coords])
@@ -107,17 +99,12 @@ if __name__ == "__main__":
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate synthetic image using CCDC')
     parser.add_argument(
-        '--gee_account',
+        '--gee_config',
         type=str,
         default=None,
-        help='GEE service account name'
+        help='Path to GEE config file that contains account name and key'
     )
-    parser.add_argument(
-        '--gee_key',
-        type=str,
-        default=None,
-        help='Path to GEE service account key file'
-    )
+
     parser.add_argument(
         '--footprint_file',
         type=str,
@@ -134,6 +121,13 @@ if __name__ == "__main__":
 
     # Parse arguments
     args = parser.parse_args()
+
+    # Load GEE acount information
+    with open(args.gee_config, 'r') as fh:
+        config = json.load(fh)
+    gee_account = config.get('gee_account')
+    gee_key_path = config.get('gee_key_path')
+
     # Extract footprint coordinates
     coords = _getCoords(args.footprint_file)
 
@@ -149,7 +143,7 @@ if __name__ == "__main__":
     outfn = tiff_file.split('.')[0]+'_ccdc'+'.tiff'
     outfile = os.path.join(args.output_path, outfn)
 
-    genSingleImage(date_str, coords, outfile=outfile)
+    genSingleImage(date_str, coords, gee_account=gee_account, gee_key=gee_key_path, outfile=outfile)
 
     
 
