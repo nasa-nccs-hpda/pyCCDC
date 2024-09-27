@@ -1,6 +1,7 @@
 from datetime import datetime as dt
 import geedim
 import json
+import ee
 from model.ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
 
 
@@ -13,7 +14,7 @@ def main():
     # Get credentials
     credentials = ee.ServiceAccountCredentials(gee_account, gee_key)
     ee.Initialize(credentials)  # gd initialize does not take service account
-    print("Initialized")
+    print("Earth Engine Initialized")
 
     date_str = '2001-08-12'
     date_object = dt.strptime(date_str, '%Y-%m-%d').date()
