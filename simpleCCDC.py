@@ -1,10 +1,11 @@
 from datetime import datetime as dt
 import geedim
+import json
 from model.ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
 
 
 def main():
-    with open('/home/jli30/gee/gee_config.json') as fh:
+    with open('/explore/nobackup/projects/ilab/gee/gee_config.json') as fh:
         config = json.load(fh)
     gee_account = config.get('gee_account')
     gee_key = config.get('gee_key_path')
