@@ -7,7 +7,7 @@ import ee
 import rioxarray as rxr
 import geedim
 from shapely import box
-from ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
+from pyCCDC.model.ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
 
 
 class CCDCPipeline:
