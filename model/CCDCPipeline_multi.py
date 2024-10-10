@@ -7,7 +7,9 @@ import ee
 import rioxarray as rxr
 import geedim
 from shapely import box
-from pyCCDC.model.ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
+import multiprocessing
+import functools
+from ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
 
 
 class CCDCPipeline:
@@ -43,9 +45,10 @@ class CCDCPipeline:
             return ee.ServiceAccountCredentials(account, key)
         except Exception as e:
             print(f"Error creating GEE credentials: {str(e)}")
-            raise  
+            raise
 
-    def _get_coords(self, file):
+    @staticmethod
+    def _get_coords(file):
         """
         Extract coordinates from a raster file and convert them to EPSG:4326 projection.
 
@@ -61,19 +64,16 @@ class CCDCPipeline:
         raster = rxr.open_rasterio(file)
 
         # Reproject the raster to EPSG:4326 (WGS84) coordinate system
-        raster_reproj = raster.rio.reproject("EPSG:4326")
-
-        # Get the projection of the raster
-        epsg = raster.rio.crs.to_epsg()
+        raster_proj = raster.rio.reproject("EPSG:4326")
 
         # Create a bounding box from the raster's extent
-        poly = box(*raster_reproj.rio.bounds())
+        poly = box(*raster_proj.rio.bounds())
 
         # Extract the coordinates of the bounding box
         # Convert each coordinate pair to [longitude, latitude] format
         coords = [[i[0], i[1]] for i in list(poly.exterior.coords)]
 
-        return coords, epsg
+        return coords
 
     def gen_single_image(self, date_str, coords, outfile=None):
     # TODO: Implement user-specified GEE account authentication. 
@@ -107,34 +107,34 @@ class CCDCPipeline:
         im = geedim.MaskedImage(out_image, mask=False)
         im.download(outfile, crs=proj, scale=30, region=roi, max_tile_size=4, overwrite=True)
 
-    def post_proc(self, file, crs):
-        raster = rxr.open_rasterio(file)
-        raster = raster.rio.write_nodata(-9999.)
+    def process_single_scene(self, fpath):
+        base_fn = os.path.basename(fpath)
 
-        raster = raster.rio.reproject(f"EPSG:{crs}")
-        raster.rio.to_raster(file)
+        # Assuming raster file name follows the pattern: QB02_YYYYMMDD_?1BS_*.tif
+        date_str = base_fn.split('_')[1]
+
+        # Validate date string format
+        if not re.match(r'^\d{8}$', date_str):
+            raise ValueError("Date string must be in the format YYYYMMDD")
+        # Convert date string to YYYY-MM-DD format for gen_single_image function
+        date_str = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
+
+        #Extract bounding box
+        coords = self._get_coords(fpath)
+
+        #Output file path
+        out_fn = base_fn.split('.')[0]+'_ccdc'+'.tif'
+        out_fpath = os.path.join(self.output_dir, out_fn)
+        self.gen_single_image(date_str, coords, outfile=out_fpath)
+
+    def process_scenes(self, wv_list):
+        # Determine the number of CPU cores to use
+        num_cores = multiprocessing.cpu_count()
+
+        # Crete a pool of worker processes
+        with multiprocessing.Pool(processes=num_cores) as pool:
+            pool.map(self.process_single_scene, wc_list)
 
     def run(self):
         wv_list = glob.glob(os.path.join(self.input_dir, "*.tif"))
-        for fpath in wv_list: 
-            base_fn = os.path.basename(fpath)
-
-            # Assuming raster file name follows the pattern: QB02_YYYYMMDD_?1BS_*.tif
-            date_str = base_fn.split('_')[1]
-
-            # Validate date string format
-            if not re.match(r'^\d{8}$', date_str):
-                raise ValueError("Date string must be in the format YYYYMMDD")
-            # Convert date string to YYYY-MM-DD format for gen_single_image function
-            date_str = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
-
-            #Extract bounding box
-            coords, epsg = self._get_coords(fpath)
-
-            #Output file path
-            out_fn = base_fn.split('.')[0]+'_ccdc'+'.tif'
-            out_fpath = os.path.join(self.output_dir, out_fn)
-            print(out_fpath)
-
-            self.gen_single_image(date_str, coords, outfile=out_fpath)
-            self.post_proc(out_fpath, epsg)
+        self.process_scenes(wv_list)
