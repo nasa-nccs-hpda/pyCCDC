@@ -114,8 +114,18 @@ class CCDCPipeline:
         raster = raster.rio.reproject(f"EPSG:{crs}")
         raster.rio.to_raster(file)
 
-    def run(self):
-        wv_list = glob.glob(os.path.join(self.input_dir, "*.tif"))
+    def run(self, toa_file=None):
+        # Process a specific ToA file if provided, otherwise process all .tif files in the input directory
+        if toa_file:
+            if os.path.exists(toa_file):
+                wv_list = [toa_file]
+            else:
+                raise FileNotFoundError(f"The specified file '{toa_file}' does not exist.")
+        else:
+            wv_list = glob.glob(os.path.join(self.input_dir, "*.tif"))
+            if not wv_list:
+                raise FileNotFoundError(f"No .tif files found in the input directory: {self.input_dir}")
+
         for fpath in wv_list: 
             base_fn = os.path.basename(fpath)
 
@@ -135,6 +145,5 @@ class CCDCPipeline:
             out_fn = base_fn.split('.')[0]+'_ccdc'+'.tif'
             out_fpath = os.path.join(self.output_dir, out_fn)
             print(out_fpath)
-
             self.gen_single_image(date_str, coords, outfile=out_fpath)
             self.post_proc(out_fpath, epsg)
