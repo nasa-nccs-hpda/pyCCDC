@@ -1,4 +1,3 @@
-import os
 import glob
 import re
 import json
@@ -7,6 +6,7 @@ import ee
 import rioxarray as rxr
 import geedim
 from shapely import box
+from pathlib import Path
 from pyCCDC.model.ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
 
 
@@ -117,20 +117,23 @@ class CCDCPipeline:
     def run(self, toa_file=None):
         # Process a specific ToA file if provided, otherwise process all .tif files in the input directory
         if toa_file:
-            if os.path.exists(toa_file):
-                wv_list = [toa_file]
+            toa_path = Path(toa_file)
+            if toa_path.exists():
+                wv_list = [str(toa_file)]
             else:
-                raise FileNotFoundError(f"The specified file '{toa_file}' does not exist.")
+                raise FileNotFoundError(f"The specified file '{toa_path}' does not exist.")
         else:
-            wv_list = glob.glob(os.path.join(self.input_dir, "*.tif"))
+            dir_path = Path(self.input_dir)
+            wv_list = list(dir_path.glob("*.tif"))
             if not wv_list:
-                raise FileNotFoundError(f"No .tif files found in the input directory: {self.input_dir}")
+                raise FileNotFoundError(f"No .tif files found in the input directory: {dir_path}")
 
+        out_list = []
         for fpath in wv_list: 
-            base_fn = os.path.basename(fpath)
+            #base_fn = fpath.name
 
             # Assuming raster file name follows the pattern: QB02_YYYYMMDD_?1BS_*.tif
-            date_str = base_fn.split('_')[1]
+            date_str = fpath.stem.split('_')[1]
 
             # Validate date string format
             if not re.match(r'^\d{8}$', date_str):
@@ -139,11 +142,12 @@ class CCDCPipeline:
             date_str = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
 
             #Extract bounding box
-            coords, epsg = self._get_coords(fpath)
+            coords, epsg = self._get_coords(str(fpath))
 
             #Output file path
-            out_fn = base_fn.split('.')[0]+'_ccdc'+'.tif'
-            out_fpath = os.path.join(self.output_dir, out_fn)
-            print(out_fpath)
-            self.gen_single_image(date_str, coords, outfile=out_fpath)
+            out_fn = fpath.stem + '_ccdc' + fpath.suffix
+            out_fpath = Path(self.output_dir) / out_fn
+            out_list.append(out_fpath)
+            self.gen_single_image(date_str, coords, outfile=str(out_fpath))
             self.post_proc(out_fpath, epsg)
+        return out_list
