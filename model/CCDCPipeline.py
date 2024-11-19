@@ -119,7 +119,7 @@ class CCDCPipeline:
         if toa_file:
             toa_path = Path(toa_file)
             if toa_path.exists():
-                wv_list = [toa_file]
+                wv_list = [toa_path]
             else:
                 raise FileNotFoundError(f"The specified file '{toa_path}' does not exist.")
         else:
