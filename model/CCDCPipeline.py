@@ -105,7 +105,7 @@ class CCDCPipeline:
 
         proj = "EPSG:4326"
         im = geedim.MaskedImage(out_image, mask=False)
-        im.download(outfile, crs=proj, scale=30, region=roi, max_tile_size=4, overwrite=True)
+        im.download(outfile, crs=proj, scale=30, region=roi, max_tile_size=2, overwrite=True)
 
     def post_proc(self, file, crs):
         raster = rxr.open_rasterio(file)
