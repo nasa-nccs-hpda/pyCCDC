@@ -51,7 +51,7 @@ class CCDCPipeline:
             print(f"Error creating GEE credentials: {str(e)}")
             raise
 
-    def _getCoords(self, file):
+    def _get_coords(self, file):
         """
         Extract coordinates from a raster file and convert
         them to EPSG:4326 projection.
