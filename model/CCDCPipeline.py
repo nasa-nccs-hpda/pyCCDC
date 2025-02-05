@@ -97,7 +97,7 @@ class CCDCPipeline:
                 outfile=None,
                 scale=30,
                 max_tile_size=0.5,
-                image_dtype='uint16'
+                image_dtype='int16'
             ):
         # TODO: Implement user-specified GEE account authentication.
         # Currently using local credentials for testing purposes.
@@ -143,7 +143,7 @@ class CCDCPipeline:
 
     def post_proc(self, file, crs):
         raster = rxr.open_rasterio(file)
-        raster = raster.rio.write_nodata(-9999.)
+        raster = raster.rio.write_nodata(-9999)
 
         raster = raster.rio.reproject(f"EPSG:{crs}")
         raster.rio.to_raster(file)
