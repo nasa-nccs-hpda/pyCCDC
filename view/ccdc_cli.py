@@ -99,7 +99,7 @@ def genSingleImage(
             outfile='',
             scale=30,
             max_tile_size=0.5,
-            image_dtype='uint16'
+            image_dtype='int16'
         ):
 
     # TODO: Implement user-specified GEE account authentication.
