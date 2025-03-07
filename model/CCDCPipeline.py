@@ -2,6 +2,7 @@ import re
 import json
 import ee
 import geedim
+import logging
 import rioxarray as rxr
 from shapely import box
 from pathlib import Path
@@ -39,9 +40,21 @@ class CCDCPipeline:
             Generate a single CCDC image.
         run(self): Run the pipeline to process all input scenes.
     """
-    def __init__(self, input_dir, output_dir):
+    def __init__(
+                self,
+                input_dir: Path,
+                output_dir: Path,
+                gee_key: Path = None
+            ):
         self.input_dir = input_dir
         self.output_dir = output_dir
+
+        if gee_key is not None:
+            self.gee_key = gee_key
+        else:
+            self.gee_key = \
+                '/explore/nobackup/projects/ilab/gee/gee_config.json'
+            logging.info(f'Defaulting to Explore location: {self.gee_key}')
 
     @staticmethod
     def _get_gee_credential(account, key):
@@ -51,7 +64,7 @@ class CCDCPipeline:
             print(f"Error creating GEE credentials: {str(e)}")
             raise
 
-    def _get_coords(self, file):
+    def _get_coords(self, file: Path):
         """
         Extract coordinates from a raster file and convert
         them to EPSG:4326 projection.
@@ -101,7 +114,7 @@ class CCDCPipeline:
             ):
         # TODO: Implement user-specified GEE account authentication.
         # Currently using local credentials for testing purposes.
-        with open("/explore/nobackup/projects/ilab/gee/gee_config.json") as fh:
+        with open(self.gee_key) as fh:
             config = json.load(fh)
         gee_account = config.get('gee_account')
         gee_key = config.get('gee_key_path')
@@ -109,9 +122,9 @@ class CCDCPipeline:
         try:
             credentials = self._get_gee_credential(gee_account, gee_key)
             ee.Initialize(credentials)
-            print("GEE initialized successfully")
+            logging.info("GEE initialized successfully")
         except Exception as e:
-            print(f"Error initializing GEE: {str(e)}")
+            logging.info(f"Error initializing GEE: {str(e)}")
             raise
 
         date_object = dt.strptime(date_str, '%Y-%m-%d').date()
