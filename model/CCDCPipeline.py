@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import ee
@@ -118,6 +119,10 @@ class CCDCPipeline:
             config = json.load(fh)
         gee_account = config.get('gee_account')
         gee_key = config.get('gee_key_path')
+
+        # if the file exists, move on and do not process
+        if os.path.exists(outfile):
+            return
 
         try:
             credentials = self._get_gee_credential(gee_account, gee_key)
