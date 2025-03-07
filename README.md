@@ -18,18 +18,23 @@ and performing time series analysis using the CCDC algorithm
 
 ## Quickstart
 
-### module load singularity
-### singularity shell -B <WORKING_DIR>:<DATA_PATH> <path-to>/ilab-vhr-toolkit
-### cd <path_to>/pyCCDC
-### python simpleCCDC.py
+```bash
+module load singularity
+singularity shell -B <WORKING_DIR>:<DATA_PATH> <path-to>/ilab-vhr-toolkit
+cd <path_to>/pyCCDC
+python simpleCCDC.py
+```
 
-## Dataset Generation and Training
+## Development Example
 
-### TBD
+When testing and developing with different configurations, the following
+command can serve as a base to test new changes.
 
-## Full Data Pipeline Command
-
-### TBD
+```bash
+python view/ccdc_cli.py --gee_config gee_config.json \
+--footprint_file "/explore/nobackup/projects/ilab/scratch/vhr-toolkit/WV02_20150911_M1BS_1030010049148A00_sr_02m.tif" \
+--output_path /explore/nobackup/projects/ilab/scratch/vhr-toolkit/ccdc-test
+```
 
 ## Contributors
 
