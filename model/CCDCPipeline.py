@@ -10,8 +10,10 @@ from pathlib import Path
 from shapely.ops import transform
 from pyproj import Transformer, CRS
 from datetime import datetime as dt
-from pyCCDC.model.ccdcUtil import \
-    toYearFraction, buildCcdImage, getMultiSynthetic
+from pyCCDC.model.ccdcUtil import (
+    toYearFraction, buildCcdImage,
+    getMultiSynthetic, get_ccdc_time_window
+)
 
 
 class CCDCPipeline:
@@ -45,17 +47,26 @@ class CCDCPipeline:
                 self,
                 input_dir: Path,
                 output_dir: Path,
-                gee_key: Path = None
+                gee_key: Path = None,
+                ccdc_url: str = 'projects/CCDC/v3'
             ):
+
+        # inputs for CCDC pipeline
         self.input_dir = input_dir
         self.output_dir = output_dir
+        self.ccdc_url = ccdc_url
 
+        # arguments for GEE
         if gee_key is not None:
             self.gee_key = gee_key
         else:
             self.gee_key = \
                 '/explore/nobackup/projects/ilab/gee/gee_config.json'
             logging.info(f'Defaulting to Explore location: {self.gee_key}')
+
+        self._ee_initialized = False
+        self._ee_credentials = None
+        self.logged_ccdc_enddate = False
 
     @staticmethod
     def _get_gee_credential(account, key):
@@ -64,6 +75,24 @@ class CCDCPipeline:
         except Exception as e:
             print(f"Error creating GEE credentials: {str(e)}")
             raise
+        return
+
+    def _ensure_ee_initialized(self):
+
+        if self._ee_initialized:
+            return
+
+        with open(self.gee_key) as fh:
+            config = json.load(fh)
+        gee_account = config.get('gee_account')
+        gee_key = config.get('gee_key_path')
+
+        self._ee_credentials = self._get_gee_credential(gee_account, gee_key)
+
+        # Initialize once
+        ee.Initialize(self._ee_credentials)
+        logging.info("GEE initialized successfully (once per process)")
+        self._ee_initialized = True
 
     def _get_coords(self, file: Path):
         """
@@ -113,36 +142,33 @@ class CCDCPipeline:
                 max_tile_size=0.5,
                 image_dtype='int16'
             ):
-        # TODO: Implement user-specified GEE account authentication.
-        # Currently using local credentials for testing purposes.
-        with open(self.gee_key) as fh:
-            config = json.load(fh)
-        gee_account = config.get('gee_account')
-        gee_key = config.get('gee_key_path')
 
         # if the file exists, move on and do not process
         if os.path.exists(outfile):
             return
 
-        try:
-            credentials = self._get_gee_credential(gee_account, gee_key)
-            ee.Initialize(credentials)
-            logging.info("GEE initialized successfully")
-        except Exception as e:
-            logging.info(f"Error initializing GEE: {str(e)}")
-            raise
+        # Initialize Earth Engine ONCE per process
+        self._ensure_ee_initialized()
 
         date_object = dt.strptime(date_str, '%Y-%m-%d').date()
         formatted_date = toYearFraction(date_object)
 
         roi = ee.Geometry.Polygon(coords=[coords])
         segments = (
-            ee.ImageCollection('projects/CCDC/v3').filterBounds(roi).mosaic())
+            ee.ImageCollection(self.ccdc_url).filterBounds(roi).mosaic())
 
         bands = ['BLUE', 'GREEN', 'RED', 'NIR']
         segs = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"]
         n_segments = len(segs)
         ccd_image = buildCcdImage(segments, n_segments, bands)
+
+        # log data archive of CCDC
+        if not self.logged_ccdc_enddate:
+            get_ccdc_time_window(ccd_image, roi, scale=scale)
+            self.logged_ccdc_enddate = True
+
+        # Compute and print window ONCE per call (or gate it with a
+        # flag if you only want once per run)
         out_image = getMultiSynthetic(
             ccd_image, formatted_date, bands, segs, 1)
 
@@ -159,12 +185,13 @@ class CCDCPipeline:
         )
         return
 
-    def post_proc(self, file, crs):
+    def post_proc(self, file, crs, nodata: int = -9999):
         raster = rxr.open_rasterio(file)
-        raster = raster.rio.write_nodata(-9999)
+        raster = raster.rio.write_nodata(nodata)
 
         raster = raster.rio.reproject(f"EPSG:{crs}")
         raster.rio.to_raster(file)
+        return
 
     def run(self, toa_file=None):
         # Process a specific ToA file if provided, otherwise

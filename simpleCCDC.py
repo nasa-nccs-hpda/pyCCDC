@@ -1,7 +1,7 @@
-from datetime import datetime as dt
-import geedim
-import json
 import ee
+import json
+import geedim
+from datetime import datetime as dt
 from model.ccdcUtil import toYearFraction, buildCcdImage, getMultiSynthetic
 
 
@@ -30,7 +30,8 @@ def main():
     ]
     roi = ee.Geometry.Polygon(coords=[coords])
 
-    segments = (ee.ImageCollection('projects/CCDC/v3').filterBounds(roi).mosaic())
+    segments = (
+        ee.ImageCollection('projects/CCDC/v3').filterBounds(roi).mosaic())
 
     BANDS = ['BLUE', 'GREEN', 'RED', 'NIR']
     SEGS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"]
@@ -50,5 +51,7 @@ def main():
         max_tile_size=2,
         overwrite=True
     )
+
+
 if __name__ == "__main__":
     main()

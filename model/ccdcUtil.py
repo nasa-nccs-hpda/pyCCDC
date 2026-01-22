@@ -1,9 +1,9 @@
 """
 CCDC (Continuous Change Detection and Classification) Utility Functions
 
-This module provides a set of functions for working with Earth Engine (ee) 
-and performing time series analysis using the CCDC algorithm. It includes 
-utilities for date handling, coefficient extraction, and synthetic imagery 
+This module provides a set of functions for working with Earth Engine (ee)
+and performing time series analysis using the CCDC algorithm. It includes
+utilities for date handling, coefficient extraction, and synthetic imagery
 generation based on CCDC model results.
 
 Key components:
@@ -13,26 +13,28 @@ Key components:
 - Coefficient filtering and extraction
 - Synthetic imagery generation
 
-These functions are designed to work with Earth Engine and require the ee library.
+These functions are designed to work with Earth Engine
+and require the ee library.
 """
 import ee
 import math
-import geedim
-import rioxarray as rxr
-from datetime import datetime as dt
 import time
+import logging
+from datetime import datetime as dt
+from datetime import datetime
+
 
 def toYearFraction(date):
     """
     Convert a datetime object to a fractional year representation.
-    
+
     Args:
         date (datetime): The date to convert
-    
+
     Returns:
         float: The fractional year representation of the input date
     """
-    def sinceEpoch(date): # returns seconds since epoch
+    def sinceEpoch(date):  # returns seconds since epoch
         return time.mktime(date.timetuple())
     s = sinceEpoch
 
@@ -46,56 +48,63 @@ def toYearFraction(date):
 
     return date.year + fraction
 
+
 def buildSegmentTag(nSegments):
     """
     Build segment tags (S1, S2, ...) for a given number of segments.
-    
+
     Args:
         nSegments (int): Number of segments
-    
+
     Returns:
         ee.List: List of segment tags
     """
     def proc(i):
         return ee.String('S').cat(ee.Number(i).int().format())
-    
-    return ee.List.sequence(1, nSegments).map(lambda i:proc(i))
+
+    return ee.List.sequence(1, nSegments).map(lambda i: proc(i))
+
 
 def buildBandTag(tag, bandList):
     """
     Build band tags by appending a tag to each band name.
-    
+
     Args:
         tag (str): Tag to append to band names
         bandList (list): List of band names
-    
+
     Returns:
         ee.List: List of band tags
     """
     bands = ee.List(bandList)
+
     def proc(s):
         return ee.String(s).cat('_'+tag)
-    return bands.map(lambda s:proc(s))
+    return bands.map(lambda s: proc(s))
+
 
 def buildStartEndBreakProb(fit, nSegments, tag):
     """
-    Build an image with start, end, break, or probability information for each segment.
-    
+    Build an image with start, end, break, or probability
+    information for each segment.
+
     Args:
         fit (ee.Image): The CCDC model fit image
         nSegments (int): Number of segments
-        tag (str): Type of information to extract ('tStart', 'tEnd', 'tBreak', or 'changeProb')
-    
+        tag (str): Type of information to extract
+        ('tStart', 'tEnd', 'tBreak', or 'changeProb')
+
     Returns:
         ee.Image: An image with the requested information for each segment
     """
     def proc(s):
         return ee.String(s).cat('_').cat(tag)
-    segmentTag=buildSegmentTag(nSegments).map(lambda s:proc(s))
+    segmentTag = buildSegmentTag(nSegments).map(lambda s: proc(s))
     zeros = ee.Array(0).repeat(0, nSegments)
-    magImg = fit.select(tag).arrayCat(zeros, 0).float().arraySlice(0, 0, nSegments)
+    magImg = fit.select(
+        tag).arrayCat(zeros, 0).float().arraySlice(0, 0, nSegments)
     return magImg.arrayFlatten([segmentTag])
-    
+
 
 def buildCoefs(fit, nSegments, bandList):
     """
@@ -107,50 +116,59 @@ def buildCoefs(fit, nSegments, bandList):
         bandList (list): List of band names
 
     Returns:
-        ee.Image: An image containing coefficient bands for each segment and spectral band
+        ee.Image: An image containing coefficient bands for
+        each segment and spectral band
     """
     nBands = len(bandList)
-    bandTag = buildBandTag('coef', bandList)
+    # bandTag = buildBandTag('coef', bandList)
     segmentTag = buildSegmentTag(nSegments)
-    harmonicTag = ['INTP','SLP','COS','SIN','COS2','SIN2','COS3','SIN3']
-    zeros = ee.Image(ee.Array([ee.List.repeat(0, len(harmonicTag))])).arrayRepeat(0, nSegments)
-    
+    harmonicTag = [
+        'INTP', 'SLP', 'COS', 'SIN', 'COS2', 'SIN2', 'COS3', 'SIN3']
+    zeros = ee.Image(
+        ee.Array(
+            [ee.List.repeat(0, len(harmonicTag))])
+        ).arrayRepeat(0, nSegments)
+
     def retrieveCoefs(band):
         """
         Retrieve coefficients for a single band and format them into an image.
-        
+
         Args:
             band (str): The name of the band
-        
+
         Returns:
-            ee.Image: An image with coefficient bands for the given spectral band
+            ee.Image: An image with coefficient bands for
+            the given spectral band
         """
         b = ee.String(band)
         cname = b.cat('_coefs')
-        coefImg = fit.select(cname).arrayCat(zeros, 0).float().arraySlice(0, 0, nSegments)
-        
+        coefImg = fit.select(
+            cname).arrayCat(zeros, 0).float().arraySlice(0, 0, nSegments)
+
         # Create tags for each segment and coefficient
         def proc(x):
             return ee.String(x).cat('_').cat(b).cat('_coef')
         tags = segmentTag.map(lambda x: proc(x))
-        
+
         # Flatten the array into an image with named bands
         return coefImg.arrayFlatten([tags, harmonicTag])
-    
+
     # Apply retrieveCoefs to each band
-    tmp = ee.List(bandList).map(lambda band:retrieveCoefs(band))
-    
+    tmp = ee.List(bandList).map(lambda band: retrieveCoefs(band))
+
     # Collect results into a list
     ll = []
     for i in range(nBands):
         ll.append(tmp.get(i))
-    
+
     # Combine all coefficient images into a single multi-band image
     return ee.Image.cat(ll)
 
+
 def buildCcdImage(fit, nSegments, bandList):
     """
-    Build a comprehensive CCDC image by combining coefficients and temporal information.
+    Build a comprehensive CCDC image by combining
+    coefficients and temporal information.
 
     Args:
         fit (ee.Image): The CCDC model fit image
@@ -158,22 +176,29 @@ def buildCcdImage(fit, nSegments, bandList):
         bandList (list): List of band names
 
     Returns:
-        ee.Image: A combined image with coefficients and temporal information for each segment
+        ee.Image: A combined image with coefficients and
+        temporal information for each segment
 
     """
     # Build coefficient images for each band and segment
     coef = buildCoefs(fit, nSegments, bandList)
-    
+
     # Extract temporal information for each segment
-    tStart = buildStartEndBreakProb(fit, nSegments, 'tStart')  # Start time of each segment
-    tEnd = buildStartEndBreakProb(fit, nSegments, 'tEnd')      # End time of each segment
-    tBreak = buildStartEndBreakProb(fit, nSegments, 'tBreak')  # Break time of each segment
-    probs = buildStartEndBreakProb(fit, nSegments, 'changeProb')  # Change probability for each segment
-    nobs = buildStartEndBreakProb(fit, nSegments, 'numObs')    # Number of observations for each segment
-    
+    # Start time of each segment
+    tStart = buildStartEndBreakProb(fit, nSegments, 'tStart')
+    # End time of each segment
+    tEnd = buildStartEndBreakProb(fit, nSegments, 'tEnd')
+    # Break time of each segment
+    # tBreak = buildStartEndBreakProb(fit, nSegments, 'tBreak')
+    # Change probability for each segment
+    # probs = buildStartEndBreakProb(fit, nSegments, 'changeProb')
+    # Number of observations for each segment
+    # nobs = buildStartEndBreakProb(fit, nSegments, 'numObs')
+
     # Combine coefficient and temporal information into a single image
     # Note: Only coef, tStart, and tEnd are included in the final image
     return ee.Image.cat([coef, tStart, tEnd])
+
 
 def filterCoefs(ccdResults, date, band, coef, segNames, behavior):
     """
@@ -197,19 +222,24 @@ def filterCoefs(ccdResults, date, band, coef, segNames, behavior):
     # Create a selection string for the coefficient bands
     selStr = ee.String(".*").cat(band).cat("_.*").cat(coef)
     coef_bands = ccdResults.select(selStr)
-    
+
     if (behavior == "before"):
-        # For 'before' behavior, select segments that started before the given date
+        # For 'before' behavior, select segments that started
+        # before the given date
         segmentMatch = startBands.selfMask().lt(date).selfMask()
-        # Get the last non-null coefficient (most recent segment before the date)
-        outCoef =  coef_bands.updateMask(segmentMatch).reduce(ee.Reducer.lastNonNull())
+        # Get the last non-null coefficient (most recent
+        # segment before the date)
+        outCoef = coef_bands.updateMask(
+            segmentMatch).reduce(ee.Reducer.lastNonNull())
     elif (behavior == "after"):
         # For 'after' behavior, select segments that end after the given date
         segmentMatch = endBands.gt(date)
         # Get the first non-null coefficient (earliest segment after the date)
-        outCoef = coef_bands.updateMask(segmentMatch).reduce(ee.Reducer.firstNonNull())
-    
+        outCoef = coef_bands.updateMask(
+            segmentMatch).reduce(ee.Reducer.firstNonNull())
+
     return outCoef
+
 
 def getCoef(ccdResults, date, bandList, coef, segNames, behavior):
     """
@@ -239,7 +269,8 @@ def getCoef(ccdResults, date, bandList, coef, segNames, behavior):
             ee.Image: Image with extracted coefficient for the band
         """
         # Filter coefficients for the specific band
-        band_coef = filterCoefs(ccdResults, date, band, coef, segNames, behavior)
+        band_coef = filterCoefs(
+            ccdResults, date, band, coef, segNames, behavior)
         # Rename the resulting band
         return band_coef.rename(ee.String(band).cat("_").cat(coef))
 
@@ -254,10 +285,11 @@ def getCoef(ccdResults, date, bandList, coef, segNames, behavior):
     # Combine all coefficient images into a single multi-band image
     return ee.Image.cat(ll)
 
+
 def getMultiCoefs(ccdResults, date, bandList, coef_list, segNames, behavior):
     """
     Extract multiple coefficients for multiple bands from CCDC results.
-    
+
     Args:
         ccdResults (ee.Image): CCDC results image
         date (float): Date to filter by (in year fraction format)
@@ -267,11 +299,12 @@ def getMultiCoefs(ccdResults, date, bandList, coef_list, segNames, behavior):
         behavior (str): 'before' or 'after' to determine filtering behavior
 
     Returns:
-        ee.Image: Image with extracted coefficients for each band and coefficient type
+        ee.Image: Image with extracted coefficients for each
+        band and coefficient type
     """
-    
+
     nCoef = len(coef_list)
-    
+
     def inner(coef):
         """
         Extract a single coefficient type for all bands.
@@ -282,19 +315,21 @@ def getMultiCoefs(ccdResults, date, bandList, coef_list, segNames, behavior):
         Returns:
             ee.Image: Image with extracted coefficient for all bands
         """
-        inner_coef = getCoef(ccdResults, date, bandList, coef, segNames, behavior)
+        inner_coef = getCoef(
+            ccdResults, date, bandList, coef, segNames, behavior)
         return inner_coef
-    
+
     # Apply the inner function to each coefficient type
     tmp = ee.List(coef_list).map(lambda c: inner(c))
-    
+
     # Collect results into a list
     ll = []
     for i in range(nCoef):
         ll.append(tmp.get(i))
-    
+
     # Combine all coefficient images into a single multi-band image
     return ee.Image.cat(ll)
+
 
 def getSyntheticForYear(image, date, band, segs, dateFormat=1):
     """
@@ -302,7 +337,8 @@ def getSyntheticForYear(image, date, band, segs, dateFormat=1):
 
     Args:
         image (ee.Image): CCDC results image
-        date (float): Date to generate synthetic imagery for (in year fraction format)
+        date (float): Date to generate synthetic imagery for
+        (in year fraction format)
         band (list): List of spectral band names
         segs (list): List of segment names
         dateFormat (int): Date format indicator (default: 1)
@@ -333,9 +369,10 @@ def getSyntheticForYear(image, date, band, segs, dateFormat=1):
     # Get the coefficients for the specified date and bands
     newParams = getMultiCoefs(image, date, band, COEFS, segs, 'before')
 
-    # Calculate synthetic values by multiplying harmonic components with coefficients
-    # and summing the results
+    # Calculate synthetic values by multiplying harmonic components
+    # with coefficients and summing the results
     return imageT.multiply(newParams).reduce('sum').rename(band)
+
 
 def getMultiSynthetic(image, date, bandList, segs, dateFormat=1, scale=10000):
     """
@@ -343,7 +380,8 @@ def getMultiSynthetic(image, date, bandList, segs, dateFormat=1, scale=10000):
 
     Args:
         image (ee.Image): CCDC results image
-        date (float): Date to generate synthetic imagery for (in year fraction format)
+        date (float): Date to generate synthetic imagery for
+        (in year fraction format)
         bandList (list): List of spectral band names
         segs (list): List of segment names
         dateFormat (int): Date format indicator (default: 1)
@@ -356,9 +394,63 @@ def getMultiSynthetic(image, date, bandList, segs, dateFormat=1, scale=10000):
     for b in bandList:
         # Generate synthetic imagery for each band
         tmp = getSyntheticForYear(image, date, [b], segs, dateFormat=1)
-        
+
         # Scale the values, convert to int16, and set masked values to -9999
         ll.append(tmp.multiply(scale).int16().unmask(-9999))
- 
+
     # Combine all band images into a single multi-band image
     return ee.Image.cat(ll)
+
+
+def year_fraction_to_date_str(yf: float) -> str:
+    if yf is None:
+        return "None"
+
+    year = int(math.floor(yf))
+    frac = yf - year
+
+    start = datetime(year, 1, 1)
+    end = datetime(year + 1, 1, 1)
+
+    dt = start + (end - start) * frac
+    return dt.strftime("%Y-%m-%d")
+
+
+def get_ccdc_time_window(
+            ccdResults: ee.Image, roi: ee.Geometry, scale: int = 30):
+    """
+    Return (t_start, t_end) for the given ROI based on the
+    CCDC tStart/tEnd bands, ignoring padded zeros.
+    """
+    tstart_img = ccdResults.select(".*_tStart")
+    tend_img = ccdResults.select(".*_tEnd")
+
+    # Mask out padded/invalid values (0 from zero-padding;
+    # also guard against negatives)
+    tstart_valid = tstart_img.updateMask(tstart_img.gt(0))
+    tend_valid = tend_img.updateMask(tend_img.gt(0))
+
+    t_start = tstart_valid.reduceRegion(
+        reducer=ee.Reducer.min(),
+        geometry=roi,
+        scale=scale,
+        bestEffort=True,
+        maxPixels=1e13,
+    ).values().get(0)
+
+    t_end = tend_valid.reduceRegion(
+        reducer=ee.Reducer.max(),
+        geometry=roi,
+        scale=scale,
+        bestEffort=True,
+        maxPixels=1e13,
+    ).values().get(0)
+
+    t_start = year_fraction_to_date_str(
+        ee.Number(t_start).getInfo())
+    t_end = year_fraction_to_date_str(
+        ee.Number(t_end).getInfo())
+
+    logging.info(f'CCDC Available Date Range: {t_start}, {t_end}')
+
+    return t_start, t_end
